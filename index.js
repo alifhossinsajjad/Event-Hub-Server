@@ -12,10 +12,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 app.use(
-  cors({
-    origin: "https://event-hub-server-kappa.vercel.app",
-    credentials: true,
-  })
+  cors()
 );
 app.use(express.json());
 
