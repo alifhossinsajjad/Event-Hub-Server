@@ -11,7 +11,12 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const app = express();
 const port = process.env.PORT || 5000;
 
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 const uri = `mongodb+srv://${process.env.EVENT_USER}:${process.env.EVENT_PASS}@nextauthdb.4uukzvs.mongodb.net/?retryWrites=true&w=majority`;
@@ -122,70 +127,67 @@ async function run() {
       }
     });
 
-
-
     // Google OAuth registration/login
-app.post("/api/auth/google", async (req, res) => {
-  try {
-    const { name, email, provider } = req.body;
+    app.post("/api/auth/google", async (req, res) => {
+      try {
+        const { name, email, provider } = req.body;
 
-    if (!name || !email) {
-      return res.status(400).json({ error: "Name and email are required" });
-    }
+        if (!name || !email) {
+          return res.status(400).json({ error: "Name and email are required" });
+        }
 
-    // Check if user exists
-    const existingUser = await usersCollection.findOne({ email });
+        // Check if user exists
+        const existingUser = await usersCollection.findOne({ email });
 
-    if (existingUser) {
-      // Update existing user with Google provider info
-      await usersCollection.updateOne(
-        { email: email },
-        {
-          $set: {
+        if (existingUser) {
+          // Update existing user with Google provider info
+          await usersCollection.updateOne(
+            { email: email },
+            {
+              $set: {
+                provider: provider,
+                updatedAt: new Date(),
+              },
+            }
+          );
+
+          return res.json({
+            message: "User updated with Google OAuth",
+            user: {
+              id: existingUser._id,
+              name: existingUser.name,
+              email: existingUser.email,
+              role: existingUser.role,
+            },
+          });
+        } else {
+          // Create new user for Google OAuth
+          const user = {
+            name,
+            email,
             provider: provider,
+            role: "user",
+            createdAt: new Date(),
             updatedAt: new Date(),
-          },
+          };
+
+          const result = await usersCollection.insertOne(user);
+
+          return res.json({
+            message: "User created with Google OAuth",
+            user: {
+              id: result.insertedId,
+              name: user.name,
+              email: user.email,
+              role: user.role,
+            },
+          });
         }
-      );
-
-      return res.json({
-        message: "User updated with Google OAuth",
-        user: {
-          id: existingUser._id,
-          name: existingUser.name,
-          email: existingUser.email,
-          role: existingUser.role
-        }
-      });
-    } else {
-      // Create new user for Google OAuth
-      const user = {
-        name,
-        email,
-        provider: provider,
-        role: "user",
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-
-      const result = await usersCollection.insertOne(user);
-
-      return res.json({
-        message: "User created with Google OAuth",
-        user: {
-          id: result.insertedId,
-          name: user.name,
-          email: user.email,
-          role: user.role
-        }
-      });
-    }
-
-  } catch (error) {
-    console.error("Google OAuth error:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+      } catch (error) {
+        console.error("Google OAuth error:", error);
+        res.status(500).json({ error: "Internal server error" });
+      }
+    });
 
     // Events API
     app.get("/api/events", async (req, res) => {
