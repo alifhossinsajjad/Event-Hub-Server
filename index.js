@@ -13,7 +13,7 @@ const port = process.env.PORT || 5000;
 
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: "https://event-hub-server-kappa.vercel.app",
     credentials: true,
   })
 );
