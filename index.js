@@ -1,6 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
+const dns = require("dns");
+dns.setServers(["8.8.8.8", "8.8.4.4"]);
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const bcrypt = require("bcryptjs");
@@ -25,6 +27,22 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+
+// Middleware to verify JWT token
+const verifyToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ error: "Access denied. No token provided." });
+  }
+  const token = authHeader.split(" ")[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    res.status(403).json({ error: "Invalid token." });
+  }
+};
 
 async function run() {
   try {
@@ -71,8 +89,11 @@ async function run() {
 
         const result = await usersCollection.insertOne(user);
 
+        const token = jwt.sign({ id: result.insertedId, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+
         res.status(201).json({
           message: "User created successfully",
+          token,
           user: {
             id: result.insertedId,
             name: user.name,
@@ -109,8 +130,11 @@ async function run() {
           return res.status(400).json({ error: "Invalid email or password" });
         }
 
+        const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+
         res.json({
           message: "Login successful",
+          token,
           user: {
             id: user._id,
             name: user.name,
@@ -148,8 +172,11 @@ async function run() {
             }
           );
 
+          const token = jwt.sign({ id: existingUser._id, email: existingUser.email }, JWT_SECRET, { expiresIn: '7d' });
+
           return res.json({
             message: "User updated with Google OAuth",
+            token,
             user: {
               id: existingUser._id,
               name: existingUser.name,
@@ -170,8 +197,11 @@ async function run() {
 
           const result = await usersCollection.insertOne(user);
 
+          const token = jwt.sign({ id: result.insertedId, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+
           return res.json({
             message: "User created with Google OAuth",
+            token,
             user: {
               id: result.insertedId,
               name: user.name,
@@ -226,7 +256,7 @@ async function run() {
       }
     });
 
-    app.post("/api/events", async (req, res) => {
+    app.post("/api/events", verifyToken, async (req, res) => {
       try {
         const event = {
           title: req.body.title,
@@ -257,7 +287,7 @@ async function run() {
       }
     });
 
-    app.put("/api/events/:id", async (req, res) => {
+    app.put("/api/events/:id", verifyToken, async (req, res) => {
       try {
         const event = {
           title: req.body.title,
@@ -287,7 +317,7 @@ async function run() {
       }
     });
 
-    app.delete("/api/events/:id", async (req, res) => {
+    app.delete("/api/events/:id", verifyToken, async (req, res) => {
       try {
         const result = await eventsCollection.deleteOne({
           _id: new ObjectId(req.params.id),
@@ -313,7 +343,7 @@ async function run() {
       }
     });
 
-    // await client.db("admin").command({ ping: 1 });
+    await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
