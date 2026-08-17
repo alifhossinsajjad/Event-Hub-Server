@@ -3,13 +3,11 @@ node_modules
 
 
 
-.env
-.env.local
-.env.development
-.env.test
-.env.production 
-.env.staging
 .env.previewe
 
 .vercel
-.env*
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat
+.gitignore
+config.bat
